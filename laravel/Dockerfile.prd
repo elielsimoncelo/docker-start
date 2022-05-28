@@ -1,0 +1,43 @@
+FROM php:7.4-cli as builder
+
+# selecionar o diretorio da aplicacao
+WORKDIR /var/www
+
+# atualizar a imagem e instalar programas basicos
+RUN apt update -y && \
+    apt install wget -y && \
+    apt install zip unzip -y
+
+# baixar o composer
+RUN wget \
+    https://raw.githubusercontent.com/composer/getcomposer.org/76a7060ccb93902cd7576b67264ad91c8a2700e2/web/installer \
+    -O \
+    - -q | \
+    php -- --quiet
+
+# instalar o laravel e criar um projeto
+RUN php composer.phar create-project --prefer-dist laravel/laravel laravel
+
+# selecionando a imagem de producao
+FROM php:7.4-fpm-alpine
+
+# selecionando a pasta da aplicacao
+WORKDIR /var/www
+
+# apagando todo o conteudo da pasta
+RUN rm -rf /var/www/html
+
+# copiar arquivos do builder para a pasta da aplicacao
+COPY --from=builder /var/www/laravel .
+
+# criando link simbolico para a pasta html
+RUN ln -s public html
+
+# daremos permissao para o www-data acessar a pasta da aplicacao
+RUN chown -R www-data:www-data /var/www
+
+# expor a porta
+EXPOSE 9000
+
+# executando o php
+CMD ["php-fpm"]
